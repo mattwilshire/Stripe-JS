@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://js.stripe.com/v3/"></script>
+	</head>
+	<body>
+		<form id="payment-form" action="charge">
+		  <div>
+		    <label>Name</label>
+		    <input class="my-input">
+		  </div>
+		  <div>
+		    <label>Card</label>
+		    <div class="my-input" id="card-element"></div>
+		  </div>
+		  <input type="submit" value="Submit">
+		</form>
+	</body>
+
+	<script>
+		var stripe = Stripe('<%= pubKey %>');
+		var elements = stripe.elements();
+
+		var cardElement = elements.create('card');
+		cardElement.mount('#card-element');
+
+		cardElement.on('change', function(event) {
+		  var displayError = document.getElementById('card-errors');
+		  if (event.error) {
+		    displayError.textContent = event.error.message;
+		  } else {
+		    displayError.textContent = '';
+		  }
+		});
+
+		var form = document.getElementById('payment-form');
+
+		form.addEventListener('submit', function(event) {
+			event.preventDefault();
+			stripe.createToken(cardElement).then(function(result) {
+				if(result.error) {
+					console.log(result.error);
+				} else {
+					console.log(result.token);
+					addToken(result.token);
+				}
+			});
+		})
+
+		function addToken(token) {
+			var form = document.getElementById('payment-form');
+			var hiddentInput = document.createElement('input');
+			hiddentInput.setAttribute('type', 'hidden');
+			hiddentInput.setAttribute('name', 'stripeToken');
+			hiddentInput.setAttribute('value', token.id);
+			form.appendChild(hiddentInput);
+
+			form.submit();
+		}
+	</script>
+</html>
