@@ -25,7 +25,10 @@ app.get('/charge', async (req, res) => {
 	let customer = await stripe.customers.create({
 		email: 'matt@gmail.com',
 		name: 'Matt',
-		source: stripeToken
+		source: stripeToken,
+		metadata: {
+			colour: 'red'
+		}
 	});
 
 	let charge = await stripe.charges.create({
@@ -41,7 +44,7 @@ app.get('/charge', async (req, res) => {
 // Subscribe customer id to the product that is a recurring daily payment!
 app.get('/sub', async (req, res) => {
 	const subscription = await stripe.subscriptions.create({
-		customer: 'cus_N4JhJlIsG4iZnQ',
+		customer: 'cus_N4hobOHm4ef2Hv',
 		items: [
 			{price: 'price_1MKBDtHhnv4PluXK6WeCQ0gj'},
 		],
@@ -49,15 +52,18 @@ app.get('/sub', async (req, res) => {
 	res.send(subscription);
 });
 
-const endpointSecret = process.env.ESECRET;
+app.get('/inv', async (req, res) => {
+	const inv = await stripe.invoices.finalizeInvoice('in_1MKYfNHhnv4PluXKwqR6JbEb', {auto_advance: 'true'});
+	await stripe.invoices.pay('in_1MKYfNHhnv4PluXKwqR6JbEb');
+	res.send(inv);
+});
 
-app.post('/webhook', express.raw({type: 'application/json'}), (request, response) => {
+//https://stripe.com/docs/billing/invoices/subscription
+app.post('/webhook', express.raw({type: 'application/json'}), async (request, response) => {
   const sig = request.headers['stripe-signature'];
-
   let event;
-
   try {
-    event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(request.body, sig, process.env.ESECRET);
   } catch (err) {
     response.status(400).send(`Webhook Error: ${err.message}`);
     return;
@@ -65,12 +71,24 @@ app.post('/webhook', express.raw({type: 'application/json'}), (request, response
 
   switch (event.type) {
     case 'invoice.paid':
-      const invoice = event.data.object;
       // PAID FOR SUBSCRIPTION!
       console.log("Invoice paid!!");
       break;
     case 'customer.created':
       console.log("Customer created!");
+      break;
+    case 'invoice.created':
+    	//https://stripe.com/docs/billing/invoices/subscription
+    	// 'Subscription renewal invoices' On the page above
+    	// Invoice is created for subscription, DON'T FINALIZE IT STRAIGHT AWAY
+    	// This is because invoices can be created manually
+    	// When a invoice (subscription) is due the invoice is in draft state for an hour then it pays it!
+    	const invoice = event.data.object;
+    	if(invoice.status == 'paid') return;
+    	//const inv = await stripe.invoices.finalizeInvoice(invoice.id, {auto_advance: 'true'});
+    	// Pay for it straight away
+			//const paid = await stripe.invoices.pay(invoice.id);
+      console.log("Invoice created & paid!");
       break;
     default:
       console.log(`Unhandled event type ${event.type}`);
