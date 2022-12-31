@@ -59,39 +59,51 @@ app.get('/inv', async (req, res) => {
 });
 
 //https://stripe.com/docs/billing/invoices/subscription
+/*
+	Use the test clocks to test subscriptions https://dashboard.stripe.com/test/test-clocks
+	Set the time to anything such as 30/12/2022 23:40
+	You create a customer and add a subscription they will have the time above set as creation time
+	Now you can click advance clock and change it to 31/12/2022 23:41 to see what happens when a new invoice is created.
+	Assuming you have the subscription to daily renewal!
+
+	When you first create a subscription, it creates an invoice that is already paid
+	Then when next invoice comes in it will create it then wait one hour before it takes payment
+	To not wait one hour you can finalize it then take payment, but you must check the id
+*/
 app.post('/webhook', express.raw({type: 'application/json'}), async (request, response) => {
   const sig = request.headers['stripe-signature'];
   let event;
   try {
-    event = stripe.webhooks.constructEvent(request.body, sig, process.env.ESECRET);
+	event = stripe.webhooks.constructEvent(request.body, sig, process.env.ESECRET);
   } catch (err) {
-    response.status(400).send(`Webhook Error: ${err.message}`);
-    return;
+	response.status(400).send(`Webhook Error: ${err.message}`);
+	return;
   }
 
   switch (event.type) {
-    case 'invoice.paid':
-      // PAID FOR SUBSCRIPTION!
-      console.log("Invoice paid!!");
-      break;
-    case 'customer.created':
-      console.log("Customer created!");
-      break;
-    case 'invoice.created':
-    	//https://stripe.com/docs/billing/invoices/subscription
-    	// 'Subscription renewal invoices' On the page above
-    	// Invoice is created for subscription, DON'T FINALIZE IT STRAIGHT AWAY
-    	// This is because invoices can be created manually
-    	// When a invoice (subscription) is due the invoice is in draft state for an hour then it pays it!
-    	const invoice = event.data.object;
-    	if(invoice.status == 'paid') return;
-    	//const inv = await stripe.invoices.finalizeInvoice(invoice.id, {auto_advance: 'true'});
-    	// Pay for it straight away
-			//const paid = await stripe.invoices.pay(invoice.id);
-      console.log("Invoice created & paid!");
-      break;
-    default:
-      console.log(`Unhandled event type ${event.type}`);
+	case 'invoice.paid':
+	  // PAID FOR SUBSCRIPTION!
+	  console.log("Invoice paid!!");
+	  break;
+	case 'customer.created':
+	  console.log("Customer created!");
+	  break;
+	case 'invoice.created':
+		//https://stripe.com/docs/billing/invoices/subscription
+		// 'Subscription renewal invoices' On the page above
+		// Invoice is created for subscription, DON'T FINALIZE IT STRAIGHT AWAY
+		// This is because invoices can be created manually
+		// When a invoice (subscription) is due the invoice is in draft state for an hour then it pays it!
+		const invoice = event.data.object;
+		if(invoice.status == 'paid') return;
+		
+		//const inv = await stripe.invoices.finalizeInvoice(invoice.id, {auto_advance: 'true'});
+		// Pay for it straight away
+		//const paid = await stripe.invoices.pay(invoice.id);
+	  console.log("Invoice created");
+	  break;
+	default:
+	  console.log(`Unhandled event type ${event.type}`);
   }
 
   response.send();
