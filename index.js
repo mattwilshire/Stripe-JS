@@ -88,19 +88,36 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (request, re
 	case 'customer.created':
 	  console.log("Customer created!");
 	  break;
+	case 'invoice.payment_failed':
+	  console.log("Invoice Payement FAILED!!");
+	  break;
+	case 'invoice.payment_succeeded':
+	  console.log("Invoice Payment Succeeded");
+	  break;
+	case 'invoice.finalized':
+	  console.log("Invoice Finalized");
+	  break;
+	case 'invoice.marked_uncollectible':
+		console.log("Invoice uncollectable ?")
+		break;
+	case 'invoice.voided':
+		console.log("Invoice VOIDED!")
+		break;
 	case 'invoice.created':
 		//https://stripe.com/docs/billing/invoices/subscription
 		// 'Subscription renewal invoices' On the page above
-		// Invoice is created for subscription, DON'T FINALIZE IT STRAIGHT AWAY
-		// This is because invoices can be created manually
+		// Finalize the subscription by its id as if you manually create them this webhook will instantly finalize them
 		// When a invoice (subscription) is due the invoice is in draft state for an hour then it pays it!
 		const invoice = event.data.object;
-		if(invoice.status == 'paid') return;
-		
+		if(invoice.status == 'paid') {
+			console.log("Invoice was created (paid)")
+		} else {
+			console.log("Invoice created");
+		}
+
+		// Pay for it straight away, useful if you don't want the subscription to be in a draft state for an hour.
 		//const inv = await stripe.invoices.finalizeInvoice(invoice.id, {auto_advance: 'true'});
-		// Pay for it straight away
 		//const paid = await stripe.invoices.pay(invoice.id);
-	  console.log("Invoice created");
 	  break;
 	default:
 	  console.log(`Unhandled event type ${event.type}`);
