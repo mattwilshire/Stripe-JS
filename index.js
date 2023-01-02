@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const PORT = 4000;
+const YOUR_DOMAIN = 'http://localhost:4000';
 
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
@@ -39,6 +40,77 @@ app.get('/charge', async (req, res) => {
 		customer: customer.id
 	});
 	res.send(charge);
+});
+
+app.get('/checkout', async (req, res) => {
+	// Customer creation is only done when mode is subscription if customer_creation is set to if_required.
+
+	// CHECK IF THE USER HAS A CUSTOMER ENTRY
+
+	// Set the metadata to the persons unique ID so when they finish this session checkout you can use the metadata 
+	// to link the customer id to the database
+	const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
+        price: 'price_1MLpVYHhnv4PluXKqIfz2oVi',
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    //customer_creation: 'if_required',
+    //customer: customer.id
+    success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${YOUR_DOMAIN}/cancel`,
+    metadata: {
+    	steamId: '748343843920322'
+    }
+  });
+
+  res.redirect(303, session.url);
+});
+
+app.get('/success', async (req, res) => {
+	let sessionId = req.query.id;
+	const session = await stripe.checkout.sessions.retrieve(sessionId);
+	console.log(session.metadata.steamId)
+  	res.json(session);
+});
+
+app.get('/checkoutSub', async (req, res) => {
+	//Check if a customer is made for the user, this stops stripe making customers for every checkout session
+	let customer = await stripe.customers.search({
+		query: 'metadata[\'steamId\']:\'testid123\''
+	});
+
+	if(customer.data.length == 0) {
+		console.log("Creating customer!")
+		customer = await stripe.customers.create({
+			metadata: {
+				steamId: 'testid123'
+			}
+		});
+	} else {
+		customer = customer.data[0];
+	}
+
+	const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        price: 'price_1MKBDtHhnv4PluXK6WeCQ0gj',
+        quantity: 1,
+      },
+    ],
+    mode: 'subscription',
+    customer: customer.id,
+    success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${YOUR_DOMAIN}/cancel`,
+    metadata: {
+    	steamId: '748343843920322'
+    }
+  });
+
+  res.redirect(303, session.url);
 });
 
 // Subscribe customer id to the product that is a recurring daily payment!
