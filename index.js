@@ -45,55 +45,71 @@ app.get('/charge', async (req, res) => {
 app.get('/checkout', async (req, res) => {
 	// Customer creation is only done when mode is subscription if customer_creation is set to if_required.
 
+	let steamId = '748343843920322';
+
 	// CHECK IF THE USER HAS A CUSTOMER ENTRY
+	let customer = await stripe.customers.search({
+		query: `metadata['steamId']:'${steamId}'`
+	});
+
+	let sessionData = {
+		line_items: [
+	  		{
+				price: 'price_1MLpVYHhnv4PluXKqIfz2oVi',
+	    		quantity: 1,
+	  		},
+		],
+		mode: 'payment',
+		payment_method_types: ['card'],
+		success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
+		cancel_url: `${YOUR_DOMAIN}/cancel`,
+		customer_creation: 'if_required',
+		shipping_address_collection: {
+			allowed_countries: ['IE', 'CA']
+		},
+		allow_promotion_codes: true,
+		// phone_number_collection: {
+		// 	enabled: true
+		// },
+		expires_at: Math.floor(new Date().getTime() / 1000) + 1800,
+		//customer_email : "test@gmail.com",
+		metadata: {
+			steamId: '748343843920322'
+		}
+	};
+
+	if(customer.data.length > 0) {
+		//sessionData['customer'] = customer.data[0].id;
+	}
+
+	//console.log(sessionData);
 
 	// Set the metadata to the persons unique ID so when they finish this session checkout you can use the metadata 
 	// to link the customer id to the database
-	const session = await stripe.checkout.sessions.create({
-    line_items: [
-      {
-        // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-        price: 'price_1MLpVYHhnv4PluXKqIfz2oVi',
-        quantity: 1,
-      },
-    ],
-    mode: 'payment',
-    //customer_creation: 'if_required',
-    //customer: customer.id
-    success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${YOUR_DOMAIN}/cancel`,
-    metadata: {
-    	steamId: '748343843920322'
-    }
-  });
+	let session = await stripe.checkout.sessions.create(sessionData);
 
-  res.redirect(303, session.url);
+	res.redirect(303, session.url);
 });
 
 app.get('/success', async (req, res) => {
 	let sessionId = req.query.id;
 	const session = await stripe.checkout.sessions.retrieve(sessionId);
-	console.log(session.metadata.steamId)
-  	res.json(session);
+	// let customerId = session.customer;
+	// let steam = session.metadata.steamId;
+
+	// const customer = await stripe.customers.update(
+  	// 	customerId,
+  	// 	{
+  	// 		metadata: {
+  	// 			steamId: steam
+  	// 		}
+	// 	}
+	// );
+  res.json(session);
 });
 
 app.get('/checkoutSub', async (req, res) => {
 	//Check if a customer is made for the user, this stops stripe making customers for every checkout session
-	let customer = await stripe.customers.search({
-		query: 'metadata[\'steamId\']:\'testid123\''
-	});
-
-	if(customer.data.length == 0) {
-		console.log("Creating customer!")
-		customer = await stripe.customers.create({
-			metadata: {
-				steamId: 'testid123'
-			}
-		});
-	} else {
-		customer = customer.data[0];
-	}
-
 	const session = await stripe.checkout.sessions.create({
     line_items: [
       {
@@ -102,7 +118,6 @@ app.get('/checkoutSub', async (req, res) => {
       },
     ],
     mode: 'subscription',
-    customer: customer.id,
     success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${YOUR_DOMAIN}/cancel`,
     metadata: {
@@ -153,6 +168,11 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (request, re
   }
 
   switch (event.type) {
+	case 'checkout.session.completed':
+		let session = event.data.object;
+		console.log("Checkout was complete!");
+		console.log(session);
+		break;
 	case 'invoice.paid':
 	  // PAID FOR SUBSCRIPTION!
 	  console.log("Invoice paid!!");
