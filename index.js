@@ -18,26 +18,72 @@ app.get('/', async (req, res) => {
 	res.render('index', { pubKey:  publicKey});
 });
 
+app.get('/setup', async (req, res) => {
+	let customer = await stripe.customers.create({
+		email: 'matt@gmail.com',
+		name: 'Matt',
+		metadata: {
+			colour: 'red',
+			steamid: '732473247324712'
+		}
+	});
+});
+
+app.get('/attach', async (req, res) => {
+	let stripeToken = req.query.stripeToken;
+	const paymentMethod = await stripe.paymentMethods.create({
+		type: 'card',
+		card: {
+		  token: stripeToken,
+		},
+	});
+
+	let resp = await stripe.paymentMethods.attach(paymentMethod.id, {
+  		customer: 'cus_NnpoidDk7WguW5',
+	});
+
+	res.send(resp);
+});
+
+app.get('/methods', async (req, res) => {
+	const paymentMethods = await stripe.paymentMethods.list({
+		customer: 'cus_NnpoidDk7WguW5',
+		type: 'card', // The type of payment methods to retrieve (e.g. card).
+	  });
+	  
+	  // Display the payment methods to the customer and allow them to select one.
+	  console.log('Available payment methods:');
+	  paymentMethods.data.forEach((paymentMethod) => {
+		console.log(`- ${paymentMethod.card.brand} ending in ${paymentMethod.card.last4}`);
+	  });
+
+	  res.send(paymentMethods);
+});
+
 app.get('/charge', async (req, res) => {
 	let stripeToken = req.query.stripeToken;
 
 	// Shouldn't really create a customer every time
 	// Just create one once, then use the customer id for every transaction, store customer id in DB.
-	let customer = await stripe.customers.create({
-		email: 'matt@gmail.com',
-		name: 'Matt',
-		source: stripeToken,
-		metadata: {
-			colour: 'red'
-		}
-	});
+
+	// let customer = await stripe.customers.create({
+	// 	email: 'matt@gmail.com',
+	// 	name: 'Matt',
+	// 	source: stripeToken,
+	// 	metadata: {
+	// 		colour: 'red'
+	// 	}
+	// });
 
 	let charge = await stripe.charges.create({
 		amount: 500,
 		currency: "eur",
-		description: "from stripe js",
-		metadata: { steamId: '7545435349213'},
-		customer: customer.id
+		description: "test1",
+		metadata: { 
+			steamId: '7545435349213'
+		},
+		source: stripeToken,
+		receipt_email: 'matthew@gmail.com'
 	});
 	res.send(charge);
 });
