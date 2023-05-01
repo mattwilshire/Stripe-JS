@@ -53,9 +53,14 @@
                 payment_method: {card: cardElement}
             });
 
-            const {paymentIntent} = confirmPayment;
+            const {paymentIntent, error} = confirmPayment;
 
-            alert(paymentIntent.status);
+			if(error) {
+				alert(`${error.code} : ${error.message}`);
+			} else {
+				alert(paymentIntent.status);
+			}
+            
 		})
 
 		function addToken(token) {
