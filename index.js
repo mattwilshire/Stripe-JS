@@ -18,6 +18,49 @@ app.get('/', async (req, res) => {
 	res.render('index', { pubKey:  publicKey});
 });
 
+app.get('/intent', async (req, res) => {
+	res.render('intent', { pubKey:  publicKey});
+});
+
+app.get('/pay', async (req, res) => {
+	try {
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount: 2000,
+			currency: 'eur',
+			payment_method_types: ['card'],
+		});
+
+		const clientSecret = paymentIntent.client_secret;
+		res.json({clientSecret, message: 'Payment done!'});
+	} catch(err) {
+		console.log(error);
+		res.status(500).json({ message: 'Internal server error.'});
+	}
+});
+
+app.get('/paysavedcard', async (req, res) => {
+	try {
+		const paymentIntent = await stripe.paymentIntents.create({
+			payment_method: 'pm_1N2ECPHhnv4PluXKeAjOnHNf',
+			customer: 'cus_NnpoidDk7WguW5',
+			amount: 2000,
+			currency: 'eur',
+			payment_method_types: ['card'],
+			confirm: true,
+			metadata: {
+				steamId: '748343843920322',
+				orderId: '5456'
+			}
+		});
+
+		res.send(paymentIntent);
+	} catch(err) {
+		console.log(error);
+		res.status(500).json({ message: 'Internal server error.'});
+	}
+});
+
+
 app.get('/setup', async (req, res) => {
 	let customer = await stripe.customers.create({
 		email: 'matt@gmail.com',
@@ -132,6 +175,42 @@ app.get('/checkout', async (req, res) => {
 
 	// Set the metadata to the persons unique ID so when they finish this session checkout you can use the metadata 
 	// to link the customer id to the database
+	let session = await stripe.checkout.sessions.create(sessionData);
+
+	res.redirect(303, session.url);
+});
+
+app.get('/checkoutCustom', async (req, res) => {
+	let sessionData = {
+		line_items: [
+			{
+				name: 'Custom Item',
+				description: 'A custom item added to checkout',
+				amount: 1000,
+				currency: 'eur',
+				quantity: 2,
+			},
+			{
+				name: 'Purple Hoodie',
+				description: 'for hoodie purple',
+				amount: 5000,
+				currency: 'eur',
+				quantity: 1,
+			}
+		],
+		mode: 'payment',
+		payment_method_types: ['card'],
+		success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
+		cancel_url: `${YOUR_DOMAIN}/cancel`,
+		expires_at: Math.floor(new Date().getTime() / 1000) + 1800,
+		payment_intent_data:
+		{
+			metadata: {
+				steamId: '748343843920322'
+			}
+		}
+	};
+
 	let session = await stripe.checkout.sessions.create(sessionData);
 
 	res.redirect(303, session.url);

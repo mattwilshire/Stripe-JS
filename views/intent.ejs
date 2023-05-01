@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://js.stripe.com/v3/"></script>
+	</head>
+	<body>
+		<form id="payment-form" action="charge">
+		  <div>
+		    <label>Name</label>
+		    <input class="my-input">
+		  </div>
+		  <div>
+		    <label>Card</label>
+		    <div class="my-input" id="card-element"></div>
+		  </div>
+		  <input type="submit" value="Submit">
+		</form>
+	</body>
+
+	<script>
+		var stripe = Stripe('<%= pubKey %>');
+		var elements = stripe.elements();
+
+		var cardElement = elements.create('card');
+		cardElement.mount('#card-element');
+
+		cardElement.on('change', function(event) {
+		  var displayError = document.getElementById('card-errors');
+		  if (event.error) {
+		    displayError.textContent = event.error.message;
+		  } else {
+		    displayError.textContent = '';
+		  }
+		});
+
+		var form = document.getElementById('payment-form');
+
+		form.addEventListener('submit', async function(event) {
+			event.preventDefault();
+            const response = await fetch('http://localhost:4000/pay', {
+                method: 'GET',
+                headers: {
+                    'Content-Type' : 'application/json'
+                }
+            });
+
+            let data = await response.json();
+
+            let paymentId = data.clientSecret;
+            console.log(data);
+
+            const confirmPayment = await stripe.confirmCardPayment(paymentId, {
+                payment_method: {card: cardElement}
+            });
+
+            const {paymentIntent} = confirmPayment;
+
+            alert(paymentIntent.status);
+		})
+
+		function addToken(token) {
+			var form = document.getElementById('payment-form');
+			var hiddentInput = document.createElement('input');
+			hiddentInput.setAttribute('type', 'hidden');
+			hiddentInput.setAttribute('name', 'stripeToken');
+			hiddentInput.setAttribute('value', token.id);
+			form.appendChild(hiddentInput);
+
+			console.log(token.id);
+			//form.submit();
+		}
+	</script>
+</html>
