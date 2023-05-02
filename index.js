@@ -11,6 +11,7 @@ const publicKey = process.env.PKEY
 const stripe = require('stripe')(process.env.PRKEY);
 
 app.set('view engine', 'ejs');
+app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -22,16 +23,21 @@ app.get('/intent', async (req, res) => {
 	res.render('intent', { pubKey:  publicKey});
 });
 
-app.get('/pay', async (req, res) => {
+app.post('/pay', async (req, res) => {
 	try {
+		let {name} = req.body;
+
 		const paymentIntent = await stripe.paymentIntents.create({
 			amount: 2000,
 			currency: 'eur',
 			payment_method_types: ['card'],
+			metadata: {
+				name: name
+			}
 		});
 
 		const clientSecret = paymentIntent.client_secret;
-		res.json({clientSecret, message: 'Payment done!'});
+		res.json({clientSecret, message: 'Payment intent created!'});
 	} catch(err) {
 		console.log(error);
 		res.status(500).json({ message: 'Internal server error.'});
