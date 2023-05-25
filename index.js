@@ -23,6 +23,10 @@ app.get('/intent', async (req, res) => {
 	res.render('intent', { pubKey:  publicKey});
 });
 
+app.get('/intentnew', async (req, res) => {
+	res.render('intentnew', { pubKey:  publicKey});
+});
+
 app.post('/pay', async (req, res) => {
 	try {
 		let {name} = req.body;
@@ -34,6 +38,22 @@ app.post('/pay', async (req, res) => {
 			metadata: {
 				name: name
 			}
+		});
+
+		const clientSecret = paymentIntent.client_secret;
+		res.json({clientSecret, message: 'Payment intent created!'});
+	} catch(err) {
+		console.log(error);
+		res.status(500).json({ message: 'Internal server error.'});
+	}
+});
+
+app.get('/secret', async (req, res) => {
+	try {
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount: 2000,
+			currency: 'eur',
+			payment_method_types: ['card']
 		});
 
 		const clientSecret = paymentIntent.client_secret;

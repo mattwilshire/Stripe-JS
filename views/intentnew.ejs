@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://js.stripe.com/v3/"></script>
+	</head>
+	<body>
+		<form id="payment-form">
+		  <div id="payment-element">
+		    <!-- Elements will create form elements here -->
+		  </div>
+		  <button id="submit">Submit</button>
+		  <div id="error-message">
+		    <!-- Display error message to your customers here -->
+		  </div>
+		</form>
+	</body>
+
+	<script defer>
+		var stripe = Stripe('<%= pubKey %>');
+		let elements;
+
+		(async () => {
+		  const response = await fetch('/secret');
+		  const data = await response.json();
+
+		  const options = {
+		  	clientSecret: data.clientSecret
+			// appearance: {},
+			};
+
+			// Set up Stripe.js and Elements to use in checkout form, passing the client secret obtained in step 3
+			elements = stripe.elements(options);
+
+			// Create and mount the Payment Element
+			const paymentElement = elements.create('payment');
+			paymentElement.mount('#payment-element');
+		})();
+
+		const form = document.getElementById('payment-form');
+
+		form.addEventListener('submit', async (event) => {
+		  event.preventDefault();
+
+		  const {error} = await stripe.confirmPayment({
+		    elements,
+		    confirmParams: {
+		      return_url: 'https://localhost:4000/order/123/complete',
+		    },
+		  });
+
+		  if (error) {
+		    const messageContainer = document.querySelector('#error-message');
+		    messageContainer.textContent = error.message;
+		  } else {
+		    // Your customer will be redirected to your `return_url`. For some payment
+		    // methods like iDEAL, your customer will be redirected to an intermediate
+		    // site first to authorize the payment, then redirected to the `return_url`.
+		  }
+		});
+	</script>
+</html>
