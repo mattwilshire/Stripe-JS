@@ -14,7 +14,7 @@ app.set('view engine', 'ejs');
 // app.use(bodyParser.json());
 
 app.use((req, res, next)  => {
-	  if (req.originalUrl === '/webhook') {
+	  if (req.originalUrl === '/api/stripe/webhook') {
 		next();
 	  } else {
 		express.json()(req, res, next);
@@ -315,7 +315,7 @@ app.get('/subbackend', async (req, res) => {
 		// latest invoice and that invoice's payment_intent
 		// so we can pass it to the front end to confirm the payment
 		const subscription = await stripe.subscriptions.create({
-			customer: 'cus_Nxxw0nu50WzO3T',
+			customer: 'cus_NxyQXYkqrQLCUV',
 			items: [{
 				price: 'price_1MKBDtHhnv4PluXK6WeCQ0gj',
 			}],
@@ -336,15 +336,13 @@ app.get('/subbackend', async (req, res) => {
 	}
 })
 
-
-const endpointSecret = "whsec_DFVfJX2N1JWYuJvNOTyaNIQEb1MYqTkN";
-app.post('/webhook', express.raw({type: 'application/json'}), (request, response) => {
+app.post('/api/stripe/webhook', express.raw({type: 'application/json'}), (request, response) => {
 	const sig = request.headers['stripe-signature'];
 
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(request.body, sig, process.env.ESECRET);
   } catch (err) {
 	console.log(err.message);
     response.status(400).send(`Webhook Error: ${err.message}`);
