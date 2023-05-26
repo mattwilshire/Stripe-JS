@@ -336,6 +336,30 @@ app.get('/subbackend', async (req, res) => {
 	}
 })
 
+app.get('/payment-sheet', async (req, res) => {
+  // Use an existing Customer ID if this is a returning customer.
+  const customer = await stripe.customers.create();
+  const ephemeralKey = await stripe.ephemeralKeys.create(
+    {customer: customer.id},
+    {apiVersion: '2020-08-27'}
+  );
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: 1000,
+    currency: 'eur',
+    customer: customer.id,
+    automatic_payment_methods: {
+      enabled: true,
+    },
+  });
+
+  res.json({
+    paymentIntent: paymentIntent.client_secret,
+    ephemeralKey: ephemeralKey.secret,
+    customer: customer.id,
+    publishableKey: process.env.PKEY
+  });
+});
+
 app.post('/api/stripe/webhook', express.raw({type: 'application/json'}), (request, response) => {
 	const sig = request.headers['stripe-signature'];
 
