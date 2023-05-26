@@ -11,9 +11,18 @@ const publicKey = process.env.PKEY
 const stripe = require('stripe')(process.env.PRKEY);
 
 app.set('view engine', 'ejs');
-app.use(bodyParser.json());
+// app.use(bodyParser.json());
+
+app.use((req, res, next)  => {
+	  if (req.originalUrl === '/webhook') {
+		next();
+	  } else {
+		express.json()(req, res, next);
+	  }
+	}
+);
+
 app.use(cookieParser());
-app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', async (req, res) => {
 	res.render('index', { pubKey:  publicKey});
@@ -25,6 +34,10 @@ app.get('/intent', async (req, res) => {
 
 app.get('/intentnew', async (req, res) => {
 	res.render('intentnew', { pubKey:  publicKey});
+});
+
+app.get('/subscribe', async (req, res) => {
+	res.render('subscribe', { pubKey:  publicKey});
 });
 
 app.post('/pay', async (req, res) => {
@@ -296,6 +309,68 @@ app.get('/inv', async (req, res) => {
 	res.send(inv);
 });
 
+app.get('/subbackend', async (req, res) => {
+	try {
+		// Create the subscription. Note we're expanding the Subscription's
+		// latest invoice and that invoice's payment_intent
+		// so we can pass it to the front end to confirm the payment
+		const subscription = await stripe.subscriptions.create({
+			customer: 'cus_Nxxw0nu50WzO3T',
+			items: [{
+				price: 'price_1MKBDtHhnv4PluXK6WeCQ0gj',
+			}],
+			payment_behavior: 'default_incomplete',
+			payment_settings: {
+				payment_method_types: ['card', 'paypal'],
+				save_default_payment_method: 'on_subscription'
+			},
+			expand: ['latest_invoice.payment_intent'],
+		});
+
+		res.send({
+			subscriptionId: subscription.id,
+			clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+		});
+	} catch (error) {
+		return res.status(400).send({ error: { message: error.message } });
+	}
+})
+
+
+const endpointSecret = "whsec_DFVfJX2N1JWYuJvNOTyaNIQEb1MYqTkN";
+app.post('/webhook', express.raw({type: 'application/json'}), (request, response) => {
+	const sig = request.headers['stripe-signature'];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+  } catch (err) {
+	console.log(err.message);
+    response.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case 'customer.created':
+      const customerCreated = event.data.object;
+      console.log("Customer Created!")
+      break;
+    case 'invoice.paid':
+      const invoicePaid = event.data.object;
+		// PAID FOR SUBSCRIPTION!
+	  console.log("Invoice paid!!");
+      break;
+    // ... handle other event types
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  // Return a 200 response to acknowledge receipt of the event
+  response.send();
+});
+
 //https://stripe.com/docs/billing/invoices/subscription
 /*
 	Use the test clocks to test subscriptions https://dashboard.stripe.com/test/test-clocks
@@ -308,66 +383,66 @@ app.get('/inv', async (req, res) => {
 	Then when next invoice comes in it will create it then wait one hour before it takes payment
 	To not wait one hour you can finalize it then take payment, but you must check the id
 */
-app.post('/webhook', express.raw({type: 'application/json'}), async (request, response) => {
-  const sig = request.headers['stripe-signature'];
-  let event;
-  try {
-	event = stripe.webhooks.constructEvent(request.body, sig, process.env.ESECRET);
-  } catch (err) {
-	response.status(400).send(`Webhook Error: ${err.message}`);
-	return;
-  }
+// app.post('/webhook', express.raw({type: 'application/json'}), async (request, response) => {
+//   const sig = request.headers['stripe-signature'];
+//   let event;
+//   try {
+// 	event = stripe.webhooks.constructEvent(request.body, sig, process.env.ESECRET);
+//   } catch (err) {
+// 	response.status(400).send(`Webhook Error: ${err.message}`);
+// 	return;
+//   }
 
-  switch (event.type) {
-	case 'checkout.session.completed':
-		let session = event.data.object;
-		console.log("Checkout was complete!");
-		console.log(session);
-		break;
-	case 'invoice.paid':
-	  // PAID FOR SUBSCRIPTION!
-	  console.log("Invoice paid!!");
-	  break;
-	case 'customer.created':
-	  console.log("Customer created!");
-	  break;
-	case 'invoice.payment_failed':
-	  console.log("Invoice Payement FAILED!!");
-	  break;
-	case 'invoice.payment_succeeded':
-	  console.log("Invoice Payment Succeeded");
-	  break;
-	case 'invoice.finalized':
-	  console.log("Invoice Finalized");
-	  break;
-	case 'invoice.marked_uncollectible':
-		console.log("Invoice uncollectable ?")
-		break;
-	case 'invoice.voided':
-		console.log("Invoice VOIDED!")
-		break;
-	case 'invoice.created':
-		//https://stripe.com/docs/billing/invoices/subscription
-		// 'Subscription renewal invoices' On the page above
-		// Finalize the subscription by its id as if you manually create them this webhook will instantly finalize them
-		// When a invoice (subscription) is due the invoice is in draft state for an hour then it pays it!
-		const invoice = event.data.object;
-		if(invoice.status == 'paid') {
-			console.log("Invoice was created (paid)")
-		} else {
-			console.log("Invoice created");
-		}
+//   switch (event.type) {
+// 	case 'checkout.session.completed':
+// 		let session = event.data.object;
+// 		console.log("Checkout was complete!");
+// 		console.log(session);
+// 		break;
+// 	case 'invoice.paid':
+// 	  // PAID FOR SUBSCRIPTION!
+// 	  console.log("Invoice paid!!");
+// 	  break;
+// 	case 'customer.created':
+// 	  console.log("Customer created!");
+// 	  break;
+// 	case 'invoice.payment_failed':
+// 	  console.log("Invoice Payement FAILED!!");
+// 	  break;
+// 	case 'invoice.payment_succeeded':
+// 	  console.log("Invoice Payment Succeeded");
+// 	  break;
+// 	case 'invoice.finalized':
+// 	  console.log("Invoice Finalized");
+// 	  break;
+// 	case 'invoice.marked_uncollectible':
+// 		console.log("Invoice uncollectable ?")
+// 		break;
+// 	case 'invoice.voided':
+// 		console.log("Invoice VOIDED!")
+// 		break;
+// 	case 'invoice.created':
+// 		//https://stripe.com/docs/billing/invoices/subscription
+// 		// 'Subscription renewal invoices' On the page above
+// 		// Finalize the subscription by its id as if you manually create them this webhook will instantly finalize them
+// 		// When a invoice (subscription) is due the invoice is in draft state for an hour then it pays it!
+// 		const invoice = event.data.object;
+// 		if(invoice.status == 'paid') {
+// 			console.log("Invoice was created (paid)")
+// 		} else {
+// 			console.log("Invoice created");
+// 		}
 
-		// Pay for it straight away, useful if you don't want the subscription to be in a draft state for an hour.
-		//const inv = await stripe.invoices.finalizeInvoice(invoice.id, {auto_advance: 'true'});
-		//const paid = await stripe.invoices.pay(invoice.id);
-	  break;
-	default:
-	  console.log(`Unhandled event type ${event.type}`);
-  }
+// 		// Pay for it straight away, useful if you don't want the subscription to be in a draft state for an hour.
+// 		//const inv = await stripe.invoices.finalizeInvoice(invoice.id, {auto_advance: 'true'});
+// 		//const paid = await stripe.invoices.pay(invoice.id);
+// 	  break;
+// 	default:
+// 	  console.log(`Unhandled event type ${event.type}`);
+//   }
 
-  response.send();
-});
+//   response.send();
+// });
 
 app.listen(PORT, () => {
 	console.log("Stripe js running!")
