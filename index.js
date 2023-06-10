@@ -1,5 +1,8 @@
 require("dotenv").config();
 const express = require("express");
+
+const http = require('http');
+const https = require('https');
 const app = express();
 const PORT = 4000;
 const YOUR_DOMAIN = 'http://localhost:4000';
@@ -9,6 +12,17 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const publicKey = process.env.PKEY
 const stripe = require('stripe')(process.env.PRKEY);
+
+const fs = require('fs');
+
+const httpsOptions = {
+	cert: fs.readFileSync('./ssl/name.crt'),
+	ca: fs.readFileSync('./ssl/name.ca-bundle'),
+	key: fs.readFileSync('./ssl/name.key')
+}
+
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(httpsOptions, app);
 
 app.set('view engine', 'ejs');
 // app.use(bodyParser.json());
@@ -471,6 +485,9 @@ app.post('/api/stripe/webhook', express.raw({type: 'application/json'}), (reques
 //   response.send();
 // });
 
-app.listen(PORT, () => {
-	console.log("Stripe js running!")
-});
+// app.listen(PORT, () => {
+// 	console.log("Stripe js running!")
+// });
+
+httpsServer.listen(443, () => { console.log("HTTPS Server Up!") });
+httpServer.listen(4000, () => { console.log("HTTP Server Up!") });
