@@ -13,6 +13,8 @@ const stripe = require('stripe')(process.env.PRKEY);
 app.set('view engine', 'ejs');
 // app.use(bodyParser.json());
 
+app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => res.download('./public/apple-developer-merchantid-domain-association'))
+
 app.use((req, res, next)  => {
 	  if (req.originalUrl === '/api/stripe/webhook') {
 		next();
@@ -30,6 +32,10 @@ app.get('/', async (req, res) => {
 
 app.get('/intent', async (req, res) => {
 	res.render('intent', { pubKey:  publicKey});
+});
+
+app.get('/applegooglepay', async (req, res) => {
+	res.render('applegooglepay', { pubKey:  publicKey});
 });
 
 app.get('/intentnew', async (req, res) => {
@@ -64,9 +70,8 @@ app.post('/pay', async (req, res) => {
 app.get('/secret', async (req, res) => {
 	try {
 		const paymentIntent = await stripe.paymentIntents.create({
-			amount: 2000,
-			currency: 'eur',
-			payment_method_types: ['card']
+			amount: 500,
+			currency: 'eur'
 		});
 
 		const clientSecret = paymentIntent.client_secret;

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://js.stripe.com/v3/"></script>
+	</head>
+	<body>
+		<div id="payment-request-button">
+			<!-- A Stripe Element will be inserted here. -->
+		</div>
+	</body>
+
+	<script defer>
+		var stripe = Stripe('<%= pubKey %>');
+		let paymentElement;
+
+		// Gathers name and email and puts it in the payment on stripe!
+		const paymentRequest = stripe.paymentRequest({
+			country: 'IE',
+			currency: 'eur',
+			total: {
+				label: 'Test Title',
+				amount: 500,
+			},
+			requestPayerName: true,
+			requestPayerEmail: true,
+		});
+
+		const elements = stripe.elements();
+		const prButton = elements.create('paymentRequestButton', {
+			paymentRequest,
+		});
+
+		(async () => {
+				// Check the availability of the Payment Request API first.
+				const result = await paymentRequest.canMakePayment();
+				if (result) {
+					prButton.mount('#payment-request-button');
+				} else {
+					document.getElementById('payment-request-button').style.display = 'none';
+				}
+			}
+		)();
+
+
+		paymentRequest.on('paymentmethod', async (ev) => {
+
+			const response = await fetch('/secret');
+		  	const data = await response.json();
+			// Confirm the PaymentIntent without handling potential next actions (yet).
+			const {paymentIntent, error: confirmError} = await stripe.confirmCardPayment(
+				data.clientSecret,
+				{payment_method: ev.paymentMethod.id},
+				{handleActions: false}
+			);
+
+			if (confirmError) {
+				// Report to the browser that the payment failed, prompting it to
+				// re-show the payment interface, or show an error message and close
+				// the payment interface.
+				ev.complete('fail');
+				console.log("apple / google pay failed")
+			} else {
+				// Report to the browser that the confirmation was successful, prompting
+				// it to close the browser payment method collection interface.
+				ev.complete('success');
+				// Check if the PaymentIntent requires any actions and, if so, let Stripe.js
+				// handle the flow. If using an API version older than "2019-02-11"
+				// instead check for: `paymentIntent.status === "requires_source_action"`.
+				if (paymentIntent.status === "requires_action") {
+				// Let Stripe.js handle the rest of the payment flow.
+				const {error} = await stripe.confirmCardPayment(clientSecret);
+				if (error) {
+					// The payment failed -- ask your customer for a new payment method.
+					console.log("apple / google pay failed")
+				} else {
+					// The payment has succeeded.
+					console.log("apple / google pay worked.")
+				}
+				} else {
+				// The payment has succeeded.
+				console.log("apple / google pay worked")
+				}
+			}
+			});
+
+	</script>
+</html>
