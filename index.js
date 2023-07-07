@@ -7,6 +7,8 @@ const app = express();
 const PORT = 4000;
 const YOUR_DOMAIN = 'http://localhost:4000';
 
+const IBAN = require('iban');
+
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -16,9 +18,8 @@ const stripe = require('stripe')(process.env.PRKEY);
 const fs = require('fs');
 
 const httpsOptions = {
-	cert: fs.readFileSync('./ssl/name.crt'),
-	ca: fs.readFileSync('./ssl/name.ca-bundle'),
-	key: fs.readFileSync('./ssl/name.key')
+	cert: fs.readFileSync('./ssl/fullchain.pem'),
+	key: fs.readFileSync('./ssl/privkey.pem')
 }
 
 const httpServer = http.createServer(app);
@@ -42,6 +43,65 @@ app.use(cookieParser());
 
 app.get('/', async (req, res) => {
 	res.render('index', { pubKey:  publicKey});
+});
+
+app.get('/pass', async (req, res) => {
+	res.download('./public/new.pkpass')
+});
+
+app.get('/payout', async (req, res) => {
+  
+	try {
+
+	// 	const account = await stripe.accounts.create({
+	// 		type: 'custom',
+	// 		country: 'IE',
+	// 		business_type: 'individual',
+	// 		individual: {
+	// 		  first_name: 'Matt',
+	// 		  last_name: 'W'
+	// 		},
+	// 		capabilities: {
+	// 			transfers: {
+	// 			  requested: true,
+	// 			}
+	// 		},
+	// 		external_account: {
+	// 		  object: 'bank_account',
+	// 		  country: 'IE',
+	// 		  currency: 'EUR',
+	// 		  account_holder_name: 'Matt W',
+	// 		  account_number: 'IE29AIBK93115212345678'
+	// 		}
+	// 	}); //acct_1NLnqjQWjdYbw8sP
+	  
+	// 	  console.log('Destination account created:', account);
+	// 	  return account;
+	// 	} catch (error) {
+	// 	  console.error('Error creating destination account:', error);
+	// 	  throw error;
+	// 	}
+
+	//   // Create a payout using Stripe API
+	  const payout = await stripe.payouts.create({
+		amount: 100,
+		currency: 'EUR',
+		destination: 'acct_1NLnqjQWjdYbw8sP',
+		source_type: 'bank_account'
+	  });
+  
+	  // Handle successful payout
+	  console.log('Payout created:', account);
+  
+	  // Send a response to the user
+	  res.send('Payout successful!');
+	} catch (error) {
+	  // Handle errors
+	  console.error('Error creating payout:', error);
+  
+	  // Send an error response to the user
+	  res.status(500).send('Error processing payout.');
+	}
 });
 
 app.get('/intent', async (req, res) => {
