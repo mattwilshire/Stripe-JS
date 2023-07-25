@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const cors = require('cors');
 
 const http = require('http');
 const https = require('https');
@@ -29,6 +30,8 @@ app.set('view engine', 'ejs');
 // app.use(bodyParser.json());
 
 app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => res.download('./public/apple-developer-merchantid-domain-association'))
+
+app.use(cors())
 
 app.use((req, res, next)  => {
 	  if (req.originalUrl === '/api/stripe/webhook') {
@@ -83,18 +86,21 @@ app.get('/payout', async (req, res) => {
 	// 	}
 
 	//   // Create a payout using Stripe API
-	  const payout = await stripe.payouts.create({
-		amount: 100,
-		currency: 'EUR',
-		destination: 'acct_1NLnqjQWjdYbw8sP',
-		source_type: 'bank_account'
-	  });
+
+	const balance = await stripe.balance.retrieve();
+	res.send(balance);
+
+	//   const payout = await stripe.transfers.create({
+	// 	amount: 10,
+	// 	currency: "eur",
+	// 	destination: "acct_1NX6XxHDGYcb6MzJ",
+	//   });
   
-	  // Handle successful payout
-	  console.log('Payout created:', account);
+	//   // Handle successful payout
+	//   console.log('Payout created:', account);
   
-	  // Send a response to the user
-	  res.send('Payout successful!');
+	//   // Send a response to the user
+	//   res.send('Payout successful!');
 	} catch (error) {
 	  // Handle errors
 	  console.error('Error creating payout:', error);
@@ -161,7 +167,7 @@ app.get('/paysavedcard', async (req, res) => {
 		const paymentIntent = await stripe.paymentIntents.create({
 			payment_method: 'pm_1N2ECPHhnv4PluXKeAjOnHNf',
 			customer: 'cus_NnpoidDk7WguW5',
-			amount: 2000,
+			amount: 200000,
 			currency: 'eur',
 			payment_method_types: ['card'],
 			confirm: true,
