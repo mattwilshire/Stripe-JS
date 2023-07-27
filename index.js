@@ -357,6 +357,29 @@ app.get('/success', async (req, res) => {
   res.json(session);
 });
 
+app.get('/subs', async (req, res) => {
+	//Check if a customer is made for the user, this stops stripe making customers for every checkout session
+	const subscriptions = await stripe.subscriptions.list({});
+
+	res.json(subscriptions);
+});
+
+app.get('/delSub', async (req, res) => {
+
+	const subscription = await stripe.subscriptions.update(
+		'sub_1NYUTfHhnv4PluXKQIbwKzT6',
+		{
+		  cancel_at_period_end: true,
+		}
+	);
+
+	// const deleted = await stripe.subscriptions.cancel('sub_1NYUVqHhnv4PluXKZHdspvrX');
+
+	res.json(subscription);
+});
+
+
+
 app.get('/checkoutSub', async (req, res) => {
 	//Check if a customer is made for the user, this stops stripe making customers for every checkout session
 	const session = await stripe.checkout.sessions.create({
@@ -369,6 +392,7 @@ app.get('/checkoutSub', async (req, res) => {
     mode: 'subscription',
     success_url: `${YOUR_DOMAIN}/success?id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${YOUR_DOMAIN}/cancel`,
+	customer_email: 'matt@gmail.com',
     metadata: {
     	steamId: '748343843920322'
     }
